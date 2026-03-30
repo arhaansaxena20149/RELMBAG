@@ -1,5 +1,5 @@
 from __future__ import annotations
-from network import safe_request, safe_json
+from network import debug_log, safe_request, safe_json
 
 def request_json(method: str, endpoint: str, **kwargs):
     """
@@ -124,10 +124,10 @@ def confirm_trade(trade_id: int, user_id: int) -> dict:
 def list_incoming_trade_requests(user_id: int | str) -> list[dict]:
     try:
         # Synchronized with server.py /trades_incoming route
-        print(f"[DEBUG] Fetching incoming trades for user {user_id}")
+        debug_log(f"[DEBUG] Fetching incoming trades for user {user_id}")
         response = safe_request("get", f"trades_incoming/{user_id}")
         data = safe_json(response)
-        print(f"[DEBUG] Received {len(data) if isinstance(data, list) else 0} incoming trades")
+        debug_log(f"[DEBUG] Received {len(data) if isinstance(data, list) else 0} incoming trades")
         return data or []
     except Exception as e:
         print(f"[ERROR] Failed to list incoming trades for {user_id}: {e}")
@@ -136,7 +136,7 @@ def list_incoming_trade_requests(user_id: int | str) -> list[dict]:
 # --- Combat API ---
 def create_battle(challenger_id: int, opponent_username: str, creature_id: int) -> dict:
     try:
-        print(f"[DEBUG] Creating battle: challenger {challenger_id}, opponent {opponent_username}")
+        debug_log(f"[DEBUG] Creating battle: challenger {challenger_id}, opponent {opponent_username}")
         response = safe_request("post", "create_battle", json={
             "challenger_id": challenger_id,
             "opponent_username": opponent_username,
@@ -151,7 +151,7 @@ def list_user_battles(user_id: int | str) -> list[dict]:
     try:
         # Synchronized with server.py /battles route
         endpoint = f"battles/{user_id}"
-        print(f"[DEBUG] Fetching user battles for {user_id}")
+        debug_log(f"[DEBUG] Fetching user battles for {user_id}")
         response = safe_request("get", endpoint)
         return safe_json(response) or []
     except Exception as e:
@@ -161,7 +161,7 @@ def list_user_battles(user_id: int | str) -> list[dict]:
 def get_battle(battle_id: int, user_id: int | str) -> dict:
     try:
         # Synchronized with server.py /battle route
-        print(f"[DEBUG] Fetching battle {battle_id} for user {user_id}")
+        debug_log(f"[DEBUG] Fetching battle {battle_id} for user {user_id}")
         response = safe_request("get", f"battle/{battle_id}", params={"user_id": user_id})
         return safe_json(response) or {}
     except Exception as e:
@@ -170,7 +170,7 @@ def get_battle(battle_id: int, user_id: int | str) -> dict:
 
 def accept_battle(battle_id: int, user_id: int, creature_id: int) -> dict:
     try:
-        print(f"[DEBUG] Accepting battle {battle_id} for user {user_id}")
+        debug_log(f"[DEBUG] Accepting battle {battle_id} for user {user_id}")
         response = safe_request("post", "accept_battle", json={
             "battle_id": battle_id,
             "user_id": user_id,
@@ -183,7 +183,7 @@ def accept_battle(battle_id: int, user_id: int, creature_id: int) -> dict:
 
 def cancel_battle(battle_id: int, user_id: int) -> None:
     try:
-        print(f"[DEBUG] Cancelling battle {battle_id} for user {user_id}")
+        debug_log(f"[DEBUG] Cancelling battle {battle_id} for user {user_id}")
         safe_request("post", "cancel_battle", json={
             "battle_id": battle_id,
             "user_id": user_id
@@ -194,10 +194,10 @@ def cancel_battle(battle_id: int, user_id: int) -> None:
 def list_incoming_battle_requests(user_id: int | str) -> list[dict]:
     try:
         # Synchronized with server.py /battles_incoming route
-        print(f"[DEBUG] Fetching incoming battles for user {user_id}")
+        debug_log(f"[DEBUG] Fetching incoming battles for user {user_id}")
         response = safe_request("get", f"battles_incoming/{user_id}")
         data = safe_json(response)
-        print(f"[DEBUG] Received {len(data) if isinstance(data, list) else 0} incoming battles")
+        debug_log(f"[DEBUG] Received {len(data) if isinstance(data, list) else 0} incoming battles")
         return data or []
     except Exception as e:
         print(f"[ERROR] Failed to list incoming battles for {user_id}: {e}")

@@ -16,6 +16,11 @@ _session = requests.Session()
 # We now force USE_REMOTE to True so that built apps connect to Render automatically
 USE_REMOTE = os.environ.get("RELMBAG_REMOTE", "true").lower() == "true"
 SERVER_URL = "https://relmbag-server.onrender.com" if USE_REMOTE else "http://localhost:5050"
+DEBUG_LOGS = os.environ.get("RELMBAG_DEBUG_LOGS", "false").lower() == "true"
+
+def debug_log(message: str) -> None:
+    if DEBUG_LOGS:
+        print(message)
 
 def safe_request(method: str, endpoint: str, **kwargs) -> requests.Response:
     """

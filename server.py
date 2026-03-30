@@ -6,7 +6,7 @@ import random
 import time
 import os
 import uuid
-from config import DATABASE_PATH, DATABASE_PATH_SOURCE, DAILY_REWARDS
+from config import DATABASE_PATH, DATABASE_PATH_SOURCE, DAILY_REWARDS, RARITY_COLORS, BASE_VALUES
 import database
 from database import transaction, _create_schema
 import trading
@@ -346,6 +346,7 @@ def open_crate():
                 "value": BASE_VALUES.get(rarity, 10) # Simple fallback for value
             },
             "remaining_tokens": user["tokens"] - 10,
+            "current_tokens": user["tokens"] - 10,
             "crate_cost": 10
         })
     except Exception as e:
@@ -378,9 +379,10 @@ def sell_creature():
         # Remove creature and add tokens
         database.delete_creature(creature["id"])
         database.adjust_user_tokens(user["id"], refund)
+        remaining_tokens = int(user["tokens"]) + refund
 
         logger.info(f"User {user['username']} sold creature {creature['creature_name']} for {refund} tokens")
-        return jsonify({"status": "success", "refund": refund})
+        return jsonify({"status": "success", "refund": refund, "remaining_tokens": remaining_tokens, "current_tokens": remaining_tokens})
     except Exception as e:
         logger.error(f"Sell creature failed: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -660,6 +662,7 @@ def claim_daily():
             return jsonify({
                 "status": "success",
                 "tokens_earned": tokens,
+                "current_tokens": int(user["tokens"]) + tokens,
                 "new_streak": streak,
                 "next_reward": DAILY_REWARDS[streak % 7] if streak < 7 else DAILY_REWARDS[0]
             })
@@ -749,6 +752,49 @@ def chat():
         except Exception as e:
             logger.error(f"Chat fetch failed: {e}")
             return jsonify([]), 500
+
+@app.route("/admin/give_creature", methods=["POST"])
+def admin_give_creature():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    creature_name = data.get("creature_name")
+    level = data.get("level", 1)
+    
+    if not user_id or not creature_name:
+        return jsonify({"status": "error", "message": "Missing required data"}), 400
+        
+    try:
+        user = resolve_user(user_id)
+        if not user:
+            return jsonify({"status": "error", "message": "User not found"}), 404
+            
+        # Find rarity for the creature
+        rarity = "Common"
+        creature_key = creature_name.lower().replace(" ", "_")
+        for r, creatures in CREATURES.items():
+            if any(c.lower().replace(" ", "_") == creature_key for c in creatures):
+                rarity = r
+                break
+                
+        creature_id = database.insert_creature(
+            user_id=user["id"],
+            creature_key=creature_key,
+            creature_name=creature_name.title(),
+            rarity=rarity,
+            image_path=f"assets/generated/sprites/{creature_key}.png",
+            value_roll=1.0
+        )
+        
+        # Update level if needed
+        if level > 1:
+            with transaction() as conn:
+                conn.execute("UPDATE owned_creatures SET level = ? WHERE id = ?", (level, creature_id))
+                
+        logger.info(f"Admin gave {creature_name} (Lv {level}) to {user['username']}")
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Admin give creature failed: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/heartbeat", methods=["POST"])
 def heartbeat():

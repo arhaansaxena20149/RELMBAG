@@ -290,6 +290,11 @@ class AdminPanelPage(QWidget):
         quick_actions.addWidget(self.detail_add_one_button)
         quick_actions.addWidget(self.detail_add_ten_button)
         user_layout.addLayout(quick_actions)
+        
+        self.give_creature_button = QPushButton("Give Creature")
+        self.give_creature_button.setObjectName("secondaryButton")
+        self.give_creature_button.clicked.connect(self.give_creature_to_selected)
+        user_layout.addWidget(self.give_creature_button)
 
         inventory_panel = QFrame()
         inventory_panel.setObjectName("accentPanel")
@@ -481,6 +486,7 @@ class AdminPanelPage(QWidget):
     def _set_detail_buttons_enabled(self, enabled: bool) -> None:
         self.detail_add_one_button.setEnabled(enabled)
         self.detail_add_ten_button.setEnabled(enabled)
+        self.give_creature_button.setEnabled(enabled)
 
     def adjust_selected_tokens(self, delta: int) -> None:
         if self.current_user_id is None:
@@ -503,6 +509,53 @@ class AdminPanelPage(QWidget):
             "Token balance updated.",
             "#63D471",
         )
+
+    def give_creature_to_selected(self) -> None:
+        if self.current_user_id is None:
+            return
+            
+        from PyQt5.QtWidgets import QDialog, QFormLayout, QLineEdit, QSpinBox, QDialogButtonBox
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Give Creature")
+        layout = QFormLayout(dialog)
+        
+        name_input = QLineEdit()
+        name_input.setPlaceholderText("e.g. Nyxarion")
+        layout.addRow("Creature Name:", name_input)
+        
+        level_input = QSpinBox()
+        level_input.setRange(1, 100)
+        level_input.setValue(1)
+        layout.addRow("Level:", level_input)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addRow(buttons)
+        
+        if dialog.exec_() == QDialog.Accepted:
+            creature_name = name_input.text().strip()
+            level = level_input.value()
+            if not creature_name:
+                return
+                
+            worker = Worker(api.safe_request, "post", "admin/give_creature", json={
+                "user_id": self.current_user_id,
+                "creature_name": creature_name,
+                "level": level
+            })
+            worker.signals.finished.connect(self._on_creature_given)
+            QThreadPool.globalInstance().start(worker)
+            set_status(self.status_label, f"Giving {creature_name} to user...", "#F2C14E")
+
+    def _on_creature_given(self, res) -> None:
+        if isinstance(res, dict) and res.get("status") == "success":
+            set_status(self.status_label, "Creature given successfully!", "#63D471")
+            self.refresh_current_user()
+        else:
+            msg = res.get("message", "Failed to give creature.") if isinstance(res, dict) else "Error"
+            set_status(self.status_label, msg, "#F47C7C")
 
 
 class AdminWindow(QMainWindow):

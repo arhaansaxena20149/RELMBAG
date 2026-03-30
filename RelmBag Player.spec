@@ -6,7 +6,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[('assets', 'assets')],
-    hiddenimports=['PyQt5.sip', 'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWidgets'],
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,12 +35,11 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/icons/pebblit.ico',
+    icon=['assets\\icons\\pebblit.ico'],
 )
 app = BUNDLE(
     exe,
     name='RelmBag Player.app',
     icon='assets/icons/pebblit.icns',
-    bundle_identifier='com.relmbag.player',
-    version='1.0.0',
+    bundle_identifier=None,
 )
