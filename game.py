@@ -34,7 +34,7 @@ import crate_system
 import database
 import inventory
 import api
-from config import APP_ICON_PNG, APP_SUBTITLE, APP_TITLE, BASE_VALUES, CRATE_COST, DROP_RATES, RARITY_COLORS, RARITY_ORDER, CREATURES_BY_RARITY
+from config import APP_ICON_PNG, APP_SUBTITLE, APP_TITLE, BASE_VALUES, CRATE_COST, DROP_RATES, RARITY_COLORS, RARITY_ORDER, CREATURES_BY_RARITY, MUTATION_COST, MUTATION_COLORS, MUTATION_RATES
 from ui_shared import APP_STYLESHEET, apply_fade_in, apply_shadow, configure_combo_box, load_pixmap, with_alpha
 from workers import Worker, HeartbeatWorker
 from api import get_users
@@ -132,6 +132,21 @@ class CreatureCard(QFrame):
 
         rarity_color = creature["rarity_color"]
         
+        # Badge Row
+        badge_row = QHBoxLayout()
+        mutation = creature.get("mutation", "None")
+        if mutation != "None":
+            mutation_color = creature.get("mutation_color", "#A0A0A0")
+            mut_badge = QLabel(mutation.upper())
+            mut_badge.setStyleSheet(
+                f"background: {with_alpha(mutation_color, 210)}; color: #120D10; "
+                f"border: 1px solid {with_alpha(mutation_color, 255)}; border-radius: 9px; "
+                "padding: 2px 8px; font-weight: 900; font-size: 9px;"
+            )
+            badge_row.addWidget(mut_badge)
+        else:
+            badge_row.addStretch()
+
         # Level Badge
         level = QLabel(f"Lv {creature['level']}")
         level.setObjectName("pill")
@@ -140,7 +155,8 @@ class CreatureCard(QFrame):
             f"border: 1px solid {with_alpha(rarity_color, 255)}; border-radius: 11px; "
             "padding: 4px 10px; font-weight: 900; font-size: 11px;"
         )
-        layout.addWidget(level, 0, Qt.AlignRight)
+        badge_row.addWidget(level)
+        layout.addLayout(badge_row)
 
         # Image
         image = QLabel()
@@ -1224,7 +1240,9 @@ class InventoryPage(BasePage):
         
         self.detail_name = QLabel("Select a Creature")
         self.detail_name.setAlignment(Qt.AlignCenter)
-        self.detail_name.setStyleSheet("font-size: 28px; font-weight: 800; color: #2D1F16;")
+        self.detail_name.setStyleSheet("font-size: 24px; font-weight: 800; color: #2D1F16;")
+        self.detail_name.setWordWrap(True)
+        self.detail_name.setTextFormat(Qt.RichText)
         
         self.detail_rarity = QLabel("-")
         self.detail_rarity.setAlignment(Qt.AlignCenter)
@@ -1264,6 +1282,12 @@ class InventoryPage(BasePage):
         
         detail_layout.addStretch()
         
+        self.mutate_button = QPushButton(f"Mutation Chamber ({MUTATION_COST} Tokens)")
+        self.mutate_button.setObjectName("secondaryButton")
+        self.mutate_button.clicked.connect(self.mutate_selected_creature)
+        self.mutate_button.setVisible(False)
+        detail_layout.addWidget(self.mutate_button)
+
         self.sell_button = QPushButton("Sell for 50% Value")
         self.sell_button.setObjectName("dangerButton")
         self.sell_button.clicked.connect(self.sell_selected_creature)
@@ -1345,15 +1369,25 @@ class InventoryPage(BasePage):
         creature = self.current_creatures.get(creature_id)
         if creature is None:
             self.sell_button.setVisible(False)
+            self.mutate_button.setVisible(False)
             return
 
         self.sell_button.setVisible(True)
+        self.mutate_button.setVisible(True)
         for card_id, card in self.current_cards.items():
             card.set_selected(card_id == creature_id)
 
         self.detail_image.setPixmap(load_pixmap(creature["image_path"], 180))
-        self.detail_name.setText(creature["display_name"])
-        self.detail_name.setStyleSheet(f"font-size: 28px; font-weight: 800; color: {creature['rarity_color']};")
+        
+        mutation = creature.get("mutation", "None")
+        mutation_color = creature.get("mutation_color", "#A0A0A0")
+        if mutation != "None":
+            name_text = f"{creature['display_name']}<br><span style='font-size: 16px; color: {mutation_color};'>[{mutation}]</span>"
+            self.detail_name.setText(name_text)
+        else:
+            self.detail_name.setText(creature["display_name"])
+            
+        self.detail_name.setStyleSheet(f"font-size: 24px; font-weight: 800; color: {creature['rarity_color']};")
         
         self.detail_rarity.setText(creature["rarity"].upper())
         self.detail_rarity.setStyleSheet(f"color: {creature['rarity_color']}; font-weight: 800; font-size: 18px;")
@@ -1370,6 +1404,41 @@ class InventoryPage(BasePage):
         self.detail_moves.setText(moves_text)
         
         self.detail_value.setText(f"VALUE: {creature['value']} TOKENS")
+
+    def mutate_selected_creature(self) -> None:
+        if self.selected_creature_id is None:
+            return
+            
+        user = self.game_window.current_user
+        if not user or user.get("tokens", 0) < MUTATION_COST:
+            show_error(self, f"Insufficient tokens. Mutation costs {MUTATION_COST} tokens.")
+            return
+            
+        confirm = QMessageBox.question(
+            self, "Confirm Mutation",
+            f"Are you sure you want to mutate this creature for {MUTATION_COST} tokens?\n"
+            "This will apply a permanent random mutation (Primal, Abyssal, Void, etc.)",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if confirm != QMessageBox.Yes:
+            return
+            
+        worker = Worker(api.safe_request, "post", "mutate", json={
+            "user_id": user["id"],
+            "creature_id": self.selected_creature_id
+        })
+        worker.signals.finished.connect(self._on_mutation_result)
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_mutation_result(self, response) -> None:
+        data = safe_json(response)
+        if data.get("status") == "success":
+            mutation = data.get("mutation", "None")
+            QMessageBox.information(self, "Mutation Success!", f"Your creature has evolved! Mutation: {mutation}")
+            self.game_window.refresh_session_data()
+            self.refresh_page()
+        else:
+            show_error(self, data.get("message", "Mutation failed."))
 
     def sell_selected_creature(self) -> None:
         creature = self.current_creatures.get(self.selected_creature_id)
@@ -2739,6 +2808,92 @@ class ChatPage(BasePage):
         QThreadPool.globalInstance().start(worker)
 
 
+class GamesPage(BasePage):
+    def __init__(self, game_window: "GameWindow") -> None:
+        super().__init__(game_window)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(34, 34, 34, 34)
+        layout.setSpacing(18)
+
+        hero = QFrame()
+        hero.setObjectName("heroPanel")
+        apply_shadow(hero, blur=34, y_offset=12)
+        hero_layout = QVBoxLayout(hero)
+        title = QLabel("Gaming District")
+        title.setObjectName("displayTitle")
+        subtitle = QLabel("Play unique minigames to earn extra tokens for your summons.")
+        subtitle.setObjectName("subtitle")
+        hero_layout.addWidget(title)
+        hero_layout.addWidget(subtitle)
+        layout.addWidget(hero)
+
+        body = QHBoxLayout()
+        body.setSpacing(18)
+
+        # RelmClicker
+        clicker_panel = QFrame()
+        clicker_panel.setObjectName("panel")
+        apply_shadow(clicker_panel, blur=30, y_offset=10)
+        clicker_layout = QVBoxLayout(clicker_panel)
+        clicker_title = QLabel("RelmClicker")
+        clicker_title.setObjectName("sectionTitle")
+        clicker_desc = QLabel("Click the ancient orb to gather energy. Every 10 clicks = 1 token.")
+        clicker_desc.setWordWrap(True)
+        clicker_desc.setStyleSheet("color: #A67B5B;")
+        
+        self.click_count = 0
+        self.click_btn = QPushButton("CLICK ME")
+        self.click_btn.setFixedSize(120, 120)
+        self.click_btn.setObjectName("secondaryButton")
+        self.click_btn.setStyleSheet("border-radius: 60px; font-size: 16px; font-weight: 900;")
+        self.click_btn.clicked.connect(self.handle_click)
+        
+        self.click_label = QLabel("Clicks: 0")
+        self.click_label.setAlignment(Qt.AlignCenter)
+        self.click_label.setStyleSheet("font-size: 18px; color: #FFF2D9; font-weight: 800;")
+        
+        clicker_layout.addWidget(clicker_title)
+        clicker_layout.addWidget(clicker_desc)
+        clicker_layout.addStretch()
+        clicker_layout.addWidget(self.click_btn, 0, Qt.AlignCenter)
+        clicker_layout.addWidget(self.click_label, 0, Qt.AlignCenter)
+        clicker_layout.addStretch()
+        body.addWidget(clicker_panel, 1)
+
+        # Placeholder for more games
+        placeholder = QFrame()
+        placeholder.setObjectName("panel")
+        apply_shadow(placeholder, blur=30, y_offset=10)
+        placeholder_layout = QVBoxLayout(placeholder)
+        placeholder_title = QLabel("Mystery Game")
+        placeholder_title.setObjectName("sectionTitle")
+        placeholder_layout.addWidget(placeholder_title)
+        placeholder_layout.addStretch()
+        placeholder_layout.addWidget(QLabel("More Games Coming Soon..."), 0, Qt.AlignCenter)
+        placeholder_layout.addStretch()
+        body.addWidget(placeholder, 1)
+
+        layout.addLayout(body)
+        layout.addStretch(1)
+        self.status_label = QLabel()
+        layout.addWidget(self.status_label)
+
+    def handle_click(self) -> None:
+        self.click_count += 1
+        self.click_label.setText(f"Clicks: {self.click_count}")
+        if self.click_count % 10 == 0:
+            self.award_token(1)
+
+    def award_token(self, amount: int) -> None:
+        worker = Worker(api.safe_request, "post", "games/reward", json={
+            "user_id": self.game_window.current_user["id"],
+            "game_name": "RelmClicker",
+            "amount": amount
+        })
+        worker.signals.finished.connect(lambda _: self.game_window.refresh_session_data())
+        QThreadPool.globalInstance().start(worker)
+
+
 class GameWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -2827,6 +2982,7 @@ class GameWindow(QMainWindow):
             ("dashboard", "Main Menu"),
             ("crate", "Summon Chamber"),
             ("inventory", "Collection Vault"),
+            ("games", "Gaming District"),
             ("trading", "Trading Hall"),
             ("fighting", "Battle Arena"),
             ("leaderboard", "Hall of Legends"),
@@ -2862,6 +3018,7 @@ class GameWindow(QMainWindow):
             "dashboard": DashboardPage(self),
             "crate": CratePage(self),
             "inventory": InventoryPage(self),
+            "games": GamesPage(self),
             "trading": TradingLobby(self),
             "fighting": FightingLobby(self),
             "leaderboard": LeaderboardPage(self),

@@ -37,6 +37,105 @@ def set_status(label: QLabel, text: str, color: str) -> None:
     label.setStyleSheet(f"color: {color}; font-weight: 600; padding: 6px 0px;")
 
 
+class AdminAbusePage(QWidget):
+    def __init__(self, main_window: "AdminWindow") -> None:
+        super().__init__()
+        self.main_window = main_window
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(34, 34, 34, 34)
+        layout.setSpacing(18)
+
+        header = QHBoxLayout()
+        back_btn = QPushButton("← Back to Roster")
+        back_btn.setObjectName("secondaryButton")
+        back_btn.clicked.connect(self.main_window.show_panel)
+        header.addWidget(back_btn)
+        header.addStretch(1)
+        layout.addLayout(header)
+
+        hero = QFrame()
+        hero.setObjectName("heroPanel")
+        hero_layout = QVBoxLayout(hero)
+        title = QLabel("Admin Abuse Panel")
+        title.setObjectName("displayTitle")
+        subtitle = QLabel("Global controls and chaotic admin tools. Use with caution.")
+        subtitle.setObjectName("subtitle")
+        hero_layout.addWidget(title)
+        hero_layout.addWidget(subtitle)
+        layout.addWidget(hero)
+
+        # Global Actions
+        body = QHBoxLayout()
+        body.setSpacing(18)
+
+        actions_panel = QFrame()
+        actions_panel.setObjectName("panel")
+        actions_layout = QVBoxLayout(actions_panel)
+        actions_title = QLabel("GLOBAL ABUSE")
+        actions_title.setObjectName("sectionTitle")
+        actions_layout.addWidget(actions_title)
+
+        give_all_btn = QPushButton("Give Everyone 1000 Tokens")
+        give_all_btn.setObjectName("successButton")
+        give_all_btn.clicked.connect(lambda: self.global_abuse("give_all_tokens", 1000))
+        
+        ban_all_btn = QPushButton("Ban Everyone (Except Admin)")
+        ban_all_btn.setObjectName("dangerButton")
+        ban_all_btn.clicked.connect(lambda: self.global_abuse("ban_everyone"))
+        
+        unban_all_btn = QPushButton("Unban Everyone")
+        unban_all_btn.setObjectName("secondaryButton")
+        unban_all_btn.clicked.connect(lambda: self.global_abuse("unban_everyone"))
+
+        self.announcement_input = QLineEdit()
+        self.announcement_input.setPlaceholderText("Enter global announcement...")
+        announce_btn = QPushButton("Send Global Announcement")
+        announce_btn.clicked.connect(self.send_announcement)
+
+        actions_layout.addWidget(give_all_btn)
+        actions_layout.addWidget(ban_all_btn)
+        actions_layout.addWidget(unban_all_btn)
+        actions_layout.addWidget(self.announcement_input)
+        actions_layout.addWidget(announce_btn)
+        body.addWidget(actions_panel, 1)
+
+        # Minigames
+        games_panel = QFrame()
+        games_panel.setObjectName("panel")
+        games_layout = QVBoxLayout(games_panel)
+        games_title = QLabel("ADMIN MINIGAMES")
+        games_title.setObjectName("sectionTitle")
+        games_layout.addWidget(games_title)
+
+        chaos_btn = QPushButton("Token Chaos (Random for all)")
+        chaos_btn.clicked.connect(lambda: self.global_abuse("token_chaos"))
+        
+        party_btn = QPushButton("Start Global Party XP")
+        party_btn.setStyleSheet("background: #E91E63; color: white;")
+        party_btn.clicked.connect(lambda: self.global_abuse("global_announcement", message="🎉 GLOBAL PARTY XP EVENT STARTED! 🎉"))
+
+        games_layout.addWidget(chaos_btn)
+        games_layout.addWidget(party_btn)
+        body.addWidget(games_panel, 1)
+        
+        layout.addLayout(body)
+        layout.addStretch(1)
+
+        self.status_label = QLabel()
+        layout.addWidget(self.status_label)
+
+    def global_abuse(self, action: str, amount: int = 0, message: str = "") -> None:
+        worker = Worker(api.safe_request, "post", "admin/abuse", json={"action": action, "amount": amount, "message": message})
+        worker.signals.finished.connect(lambda _: set_status(self.status_label, f"Abuse action '{action}' executed!", "#63D471"))
+        QThreadPool.globalInstance().start(worker)
+
+    def send_announcement(self) -> None:
+        msg = self.announcement_input.text().strip()
+        if not msg: return
+        self.announcement_input.clear()
+        self.global_abuse("global_announcement", message=msg)
+
+
 def clear_layout(layout) -> None:
     while layout.count():
         item = layout.takeAt(0)
@@ -197,7 +296,25 @@ class AdminPanelPage(QWidget):
         self.current_user_id: int | None = None
 
         root = QVBoxLayout(self)
+        root.setContentsMargins(34, 34, 34, 34)
         root.setSpacing(18)
+
+        header = QHBoxLayout()
+        title = QLabel("Admin Player Roster")
+        title.setObjectName("displayTitle")
+        header.addWidget(title)
+        header.addStretch(1)
+
+        abuse_btn = QPushButton("Admin Abuse")
+        abuse_btn.setObjectName("dangerButton")
+        abuse_btn.clicked.connect(self.main_window.show_abuse_panel)
+        header.addWidget(abuse_btn)
+
+        logout_btn = QPushButton("Logout")
+        logout_btn.setObjectName("secondaryButton")
+        logout_btn.clicked.connect(self.main_window.logout)
+        header.addWidget(logout_btn)
+        root.addLayout(header)
 
         hero_panel = QFrame()
         hero_panel.setObjectName("heroPanel")
@@ -565,10 +682,17 @@ class AdminWindow(QMainWindow):
         self.panel_page = AdminPanelPage(self)
         self.stack.addWidget(self.panel_page)
 
+        self.abuse_page = AdminAbusePage(self)
+        self.stack.addWidget(self.abuse_page)
+
     def show_panel(self) -> None:
         self.stack.setCurrentWidget(self.panel_page)
         self.panel_page.activate()
         apply_fade_in(self.panel_page)
+
+    def show_abuse_panel(self) -> None:
+        self.stack.setCurrentWidget(self.abuse_page)
+        apply_fade_in(self.abuse_page)
 
     def logout(self) -> None:
         self.panel_page.deactivate()

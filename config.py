@@ -46,9 +46,10 @@ APP_ICON_ICO = ICONS_DIR / "pebblit.ico"
 
 APP_TITLE = "RelmBag Arena"
 APP_SUBTITLE = "Creature Crates, Trading, and Tactical Battles"
-APP_VERSION = "1.1"
+APP_VERSION = "1.2"
 
 CRATE_COST = 10
+MUTATION_COST = 100
 MAX_LEVEL = 50
 WINNER_XP = 60
 LOSER_XP = 24
@@ -114,6 +115,29 @@ RARITY_COLORS = {
     "Celestial": "#6E8DFF",
     "Multiversal": "#9F5BFF",
     "Ultimate": "#FF5FC8",
+}
+
+MUTATION_RATES = {
+    "None": 0.0,
+    "Primal": 60.0,
+    "Abyssal": 25.0,
+    "Void": 10.0,
+    "Eternal": 4.0,
+    "Celestial": 1.0, # changed name to Celestial for consistency
+}
+
+MUTATION_COLORS = {
+    "None": "#A0A0A0",
+    "Primal": "#FF4500",
+    "Abyssal": "#4B0082",
+    "Void": "#000000",
+    "Eternal": "#FFD700",
+    "Celestial": "#00FFFF",
+}
+
+GAME_REWARDS = {
+    "RelmClicker": 1, # per 10 clicks
+    "MemoryMatch": 50, # per win
 }
 
 RARITY_STAT_MULTIPLIERS = {

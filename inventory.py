@@ -1,6 +1,6 @@
 from __future__ import annotations
 from network import safe_request, safe_json
-from config import CREATURE_CATALOG, RARITY_COLORS, RARITY_INDEX, RARITY_ORDER, slugify
+from config import CREATURE_CATALOG, RARITY_COLORS, RARITY_INDEX, RARITY_ORDER, slugify, MUTATION_COLORS
 from leveling import calculate_creature_value, scale_stats
 import database
 from sprite_loader import get_sprite_path
@@ -14,6 +14,7 @@ def enrich_creature(creature: dict) -> dict:
     template = CREATURE_CATALOG[creature_key]
     rarity = creature.get("rarity", template.get("rarity", "Common"))
     level = int(creature.get("level", 1) or 1)
+    mutation = creature.get("mutation", "None")
     
     stats = scale_stats(template.get("base_stats", {}), rarity, level)
     unlocked_moves = []
@@ -31,6 +32,8 @@ def enrich_creature(creature: dict) -> dict:
             "moves": unlocked_moves,
             "rarity_color": RARITY_COLORS.get(rarity, "#FFFFFF"),
             "rarity_index": RARITY_INDEX.get(rarity, 0),
+            "mutation": mutation,
+            "mutation_color": MUTATION_COLORS.get(mutation, "#A0A0A0"),
             "value": calculate_creature_value(rarity, level, float(creature.get("value_roll", 1.0) or 1.0)),
         }
     )
@@ -85,6 +88,7 @@ def get_inventory(user_id: int | str, sort_by: str = "rarity", rarity_filter: st
             "level": level,
             "xp": xp,
             "value_roll": value_roll,
+            "mutation": creature.get("mutation", "None"),
         }
         enriched = enrich_creature(creature_payload)
         if enriched:

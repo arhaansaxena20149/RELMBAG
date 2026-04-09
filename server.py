@@ -7,7 +7,23 @@ import random
 import time
 import os
 import uuid
-from config import DATABASE_PATH, DATABASE_PATH_SOURCE, DAILY_REWARDS, RARITY_COLORS, BASE_VALUES
+from config import (
+    ADMIN_PASSWORD,
+    ADMIN_USERNAME,
+    APP_ICON_PNG,
+    APP_TITLE,
+    BASE_VALUES,
+    CRATE_COST,
+    DATABASE_PATH,
+    DATABASE_PATH_SOURCE,
+    DROP_RATES,
+    MAX_LEVEL,
+    RARITY_COLORS,
+    RARITY_ORDER,
+    MUTATION_COST,
+    MUTATION_RATES,
+    DAILY_REWARDS,
+)
 import database
 from database import transaction, _create_schema
 import trading
@@ -849,11 +865,103 @@ def debug():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
+@app.route("/mutate", methods=["POST"])
+def mutate_creature():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    creature_id = data.get("creature_id")
+    
+    if not user_id or not creature_id:
+        return jsonify({"status": "error", "message": "Missing required data"}), 400
+        
+    try:
+        with transaction() as conn:
+            user = conn.execute("SELECT tokens FROM users WHERE id = ?", (user_id,)).fetchone()
+            if not user or user["tokens"] < MUTATION_COST:
+                return jsonify({"status": "error", "message": f"Insufficient tokens. Mutation costs {MUTATION_COST} tokens."}), 403
+            
+            creature = conn.execute("SELECT id FROM owned_creatures WHERE id = ? AND user_id = ?", (creature_id, user_id)).fetchone()
+            if not creature:
+                return jsonify({"status": "error", "message": "Creature not found or does not belong to you."}), 404
+            
+            # Mutation logic
+            import random
+            roll = random.uniform(0, 100)
+            mutation = "None"
+            cumulative = 0
+            # Sort mutation rates by probability to check correctly
+            for name, rate in sorted(MUTATION_RATES.items(), key=lambda x: x[1]):
+                cumulative += rate
+                if roll <= cumulative:
+                    mutation = name
+                    break
+            
+            conn.execute("UPDATE users SET tokens = tokens - ? WHERE id = ?", (MUTATION_COST, user_id))
+            conn.execute("UPDATE owned_creatures SET mutation = ? WHERE id = ?", (mutation, creature_id))
+            
+            logger.info(f"User {user_id} mutated creature {creature_id} to {mutation}")
+            return jsonify({"status": "success", "mutation": mutation})
+    except Exception as e:
+        logger.error(f"Mutation failed: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/games/reward", methods=["POST"])
+def game_reward():
+    data = request.json or {}
+    user_id = data.get("user_id")
+    game_name = data.get("game_name")
+    reward_amount = data.get("amount", 0)
+    
+    if not user_id or not game_name:
+        return jsonify({"status": "error"}), 400
+        
+    try:
+        # Basic security check for rewards
+        max_reward = 100
+        if reward_amount > max_reward:
+            logger.warning(f"User {user_id} attempted suspicious reward: {reward_amount}")
+            return jsonify({"status": "error", "message": "Invalid reward"}), 400
+            
+        with transaction() as conn:
+            conn.execute("UPDATE users SET tokens = tokens + ? WHERE id = ?", (reward_amount, user_id))
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/admin/abuse", methods=["POST"])
+def admin_abuse():
+    data = request.json or {}
+    action = data.get("action")
+    amount = data.get("amount", 0)
+    message = data.get("message", "")
+    
+    try:
+        with transaction() as conn:
+            if action == "give_all_tokens":
+                conn.execute("UPDATE users SET tokens = tokens + ?", (amount,))
+                logger.info(f"Admin Abuse: Gave everyone {amount} tokens")
+            elif action == "ban_everyone":
+                conn.execute("UPDATE users SET is_banned = 1 WHERE username != 'admin'")
+                logger.info(f"Admin Abuse: Banned everyone")
+            elif action == "unban_everyone":
+                conn.execute("UPDATE users SET is_banned = 0")
+                logger.info(f"Admin Abuse: Unbanned everyone")
+            elif action == "global_announcement":
+                # Find admin user ID
+                admin_user = conn.execute("SELECT id FROM users WHERE username='admin'").fetchone()
+                if admin_user:
+                    conn.execute("INSERT INTO chat_messages (user_id, message) VALUES (?, ?)", (admin_user["id"], f"[GLOBAL] {message}"))
+                logger.info(f"Admin Abuse: Global announcement: {message}")
+            return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Admin abuse failed: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route("/")
 def home():
     return jsonify({
         "status": "online",
-        "version": "1.1",
+        "version": "1.2",
         "service": "RelmBag Arena Server",
         "database": str(DATABASE_PATH),
         "source": DATABASE_PATH_SOURCE,
