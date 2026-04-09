@@ -2830,68 +2830,228 @@ class GamesPage(BasePage):
         body = QHBoxLayout()
         body.setSpacing(18)
 
-        # RelmClicker
-        clicker_panel = QFrame()
-        clicker_panel.setObjectName("panel")
-        apply_shadow(clicker_panel, blur=30, y_offset=10)
-        clicker_layout = QVBoxLayout(clicker_panel)
-        clicker_title = QLabel("RelmClicker")
-        clicker_title.setObjectName("sectionTitle")
-        clicker_desc = QLabel("Click the ancient orb to gather energy. Every 10 clicks = 1 token.")
-        clicker_desc.setWordWrap(True)
-        clicker_desc.setStyleSheet("color: #A67B5B;")
+        # RelmFishing
+        fishing_panel = QFrame()
+        fishing_panel.setObjectName("panel")
+        apply_shadow(fishing_panel, blur=30, y_offset=10)
+        fishing_layout = QVBoxLayout(fishing_panel)
+        fishing_title = QLabel("Relm Fishing")
+        fishing_title.setObjectName("sectionTitle")
+        fishing_desc = QLabel("Cast your line and reel in the rare catches! Keep the hook in the fish zone.")
+        fishing_desc.setWordWrap(True)
+        fishing_desc.setStyleSheet("color: #A67B5B;")
         
-        self.click_count = 0
-        self.click_btn = QPushButton("CLICK ME")
-        self.click_btn.setFixedSize(120, 120)
-        self.click_btn.setObjectName("secondaryButton")
-        self.click_btn.setStyleSheet("border-radius: 60px; font-size: 16px; font-weight: 900;")
-        self.click_btn.clicked.connect(self.handle_click)
+        self.fishing_game_btn = QPushButton("GO FISHING")
+        self.fishing_game_btn.setObjectName("secondaryButton")
+        self.fishing_game_btn.clicked.connect(self.start_fishing_game)
         
-        self.click_label = QLabel("Clicks: 0")
-        self.click_label.setAlignment(Qt.AlignCenter)
-        self.click_label.setStyleSheet("font-size: 18px; color: #FFF2D9; font-weight: 800;")
-        
-        clicker_layout.addWidget(clicker_title)
-        clicker_layout.addWidget(clicker_desc)
-        clicker_layout.addStretch()
-        clicker_layout.addWidget(self.click_btn, 0, Qt.AlignCenter)
-        clicker_layout.addWidget(self.click_label, 0, Qt.AlignCenter)
-        clicker_layout.addStretch()
-        body.addWidget(clicker_panel, 1)
+        fishing_layout.addWidget(fishing_title)
+        fishing_layout.addWidget(fishing_desc)
+        fishing_layout.addStretch()
+        fishing_layout.addWidget(self.fishing_game_btn, 0, Qt.AlignCenter)
+        fishing_layout.addStretch()
+        body.addWidget(fishing_panel, 1)
 
-        # Placeholder for more games
-        placeholder = QFrame()
-        placeholder.setObjectName("panel")
-        apply_shadow(placeholder, blur=30, y_offset=10)
-        placeholder_layout = QVBoxLayout(placeholder)
-        placeholder_title = QLabel("Mystery Game")
-        placeholder_title.setObjectName("sectionTitle")
-        placeholder_layout.addWidget(placeholder_title)
-        placeholder_layout.addStretch()
-        placeholder_layout.addWidget(QLabel("More Games Coming Soon..."), 0, Qt.AlignCenter)
-        placeholder_layout.addStretch()
-        body.addWidget(placeholder, 1)
+        # RelmSlayer (Fruit Ninja style)
+        slayer_panel = QFrame()
+        slayer_panel.setObjectName("panel")
+        apply_shadow(slayer_panel, blur=30, y_offset=10)
+        slayer_layout = QVBoxLayout(slayer_panel)
+        slayer_title = QLabel("Relm Slayer")
+        slayer_title.setObjectName("sectionTitle")
+        slayer_desc = QLabel("Shadow creatures are invading! Slash them before they disappear.")
+        slayer_desc.setWordWrap(True)
+        slayer_desc.setStyleSheet("color: #A67B5B;")
+        
+        self.slayer_game_btn = QPushButton("START SLAYING")
+        self.slayer_game_btn.setObjectName("dangerButton")
+        self.slayer_game_btn.clicked.connect(self.start_slayer_game)
+        
+        slayer_layout.addWidget(slayer_title)
+        slayer_layout.addWidget(slayer_desc)
+        slayer_layout.addStretch()
+        slayer_layout.addWidget(self.slayer_game_btn, 0, Qt.AlignCenter)
+        slayer_layout.addStretch()
+        body.addWidget(slayer_panel, 1)
 
         layout.addLayout(body)
         layout.addStretch(1)
         self.status_label = QLabel()
         layout.addWidget(self.status_label)
 
-    def handle_click(self) -> None:
-        self.click_count += 1
-        self.click_label.setText(f"Clicks: {self.click_count}")
-        if self.click_count % 10 == 0:
-            self.award_token(1)
+    def start_fishing_game(self) -> None:
+        dialog = FishingGameDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.award_token("RelmFishing", 5)
 
-    def award_token(self, amount: int) -> None:
+    def start_slayer_game(self) -> None:
+        dialog = SlayerGameDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.award_token("RelmSlayer", 10)
+
+    def award_token(self, game_name: str, amount: int) -> None:
         worker = Worker(api.safe_request, "post", "games/reward", json={
             "user_id": self.game_window.current_user["id"],
-            "game_name": "RelmClicker",
+            "game_name": game_name,
             "amount": amount
         })
         worker.signals.finished.connect(lambda _: self.game_window.refresh_session_data())
         QThreadPool.globalInstance().start(worker)
+        set_status(self.status_label, f"Well played! You earned {amount} tokens.", "#63D471")
+
+
+class FishingGameDialog(QDialog):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Relm Fishing")
+        self.resize(300, 500)
+        self.setStyleSheet(parent.parent().styleSheet())
+        layout = QVBoxLayout(self)
+        
+        title = QLabel("RELM FISHING")
+        title.setObjectName("sectionTitle")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        instr = QLabel("HOLD SPACE to raise your hook. KEEP IT ON THE FISH!")
+        instr.setWordWrap(True)
+        instr.setAlignment(Qt.AlignCenter)
+        layout.addWidget(instr)
+
+        # Game Area
+        self.game_frame = QFrame()
+        self.game_frame.setFixedSize(200, 300)
+        self.game_frame.setObjectName("panel")
+        self.game_frame.setStyleSheet("background: #0D1B2A; border: 2px solid #1B263B;")
+        layout.addWidget(self.game_frame, 0, Qt.AlignCenter)
+
+        # Progress
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        layout.addWidget(self.progress_bar)
+
+        # Objects
+        self.fish_y = 150
+        self.hook_y = 150
+        self.fish_velocity = 2
+        self.hook_velocity = 0
+        self.progress = 0
+        
+        self.fish_marker = QFrame(self.game_frame)
+        self.fish_marker.setFixedSize(40, 40)
+        self.fish_marker.setStyleSheet("background: #E91E63; border-radius: 20px;")
+        
+        self.hook_marker = QFrame(self.game_frame)
+        self.hook_marker.setFixedSize(60, 60)
+        self.hook_marker.setStyleSheet("background: rgba(0, 255, 255, 0.3); border: 2px solid #00FFFF; border-radius: 10px;")
+        
+        self.space_pressed = False
+        
+        self.timer = QTimer(self)
+        self.timer.setInterval(30)
+        self.timer.timeout.connect(self.update_game)
+        self.timer.start()
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() == Qt.Key_Space:
+            self.space_pressed = True
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event) -> None:
+        if event.key() == Qt.Key_Space:
+            self.space_pressed = False
+        super().keyReleaseEvent(event)
+
+    def update_game(self) -> None:
+        # Fish movement
+        import random
+        if random.random() < 0.05:
+            self.fish_velocity = random.uniform(-4, 4)
+        
+        self.fish_y += self.fish_velocity
+        self.fish_y = max(0, min(260, self.fish_y))
+        
+        # Hook movement (gravity vs space)
+        if self.space_pressed:
+            self.hook_velocity -= 0.6
+        else:
+            self.hook_velocity += 0.4
+            
+        self.hook_velocity = max(-6, min(6, self.hook_velocity))
+        self.hook_y += self.hook_velocity
+        self.hook_y = max(0, min(240, self.hook_y))
+        
+        # Update visuals
+        self.fish_marker.move(80, int(self.fish_y))
+        self.hook_marker.move(70, int(self.hook_y))
+        
+        # Check collision
+        if abs((self.hook_y + 30) - (self.fish_y + 20)) < 40:
+            self.progress += 0.5
+        else:
+            self.progress -= 0.3
+            
+        self.progress = max(0, min(100, self.progress))
+        self.progress_bar.setValue(int(self.progress))
+        
+        if self.progress >= 100:
+            self.timer.stop()
+            self.accept()
+
+
+class SlayerGameDialog(QDialog):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Relm Slayer")
+        self.resize(600, 600)
+        self.setStyleSheet(parent.parent().styleSheet())
+        layout = QVBoxLayout(self)
+        
+        title = QLabel("RELM SLAYER")
+        title.setObjectName("sectionTitle")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        self.score = 0
+        self.score_label = QLabel("Shadows Slain: 0 / 20")
+        self.score_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.score_label)
+
+        self.game_area = QFrame()
+        self.game_area.setFixedSize(500, 400)
+        self.game_area.setObjectName("panel")
+        self.game_area.setStyleSheet("background: #120D10; border: 2px solid #E14B4B;")
+        layout.addWidget(self.game_area, 0, Qt.AlignCenter)
+        
+        self.target = QPushButton("SHADOW", self.game_area)
+        self.target.setFixedSize(80, 80)
+        self.target.setStyleSheet("background: #E14B4B; color: white; border-radius: 40px; font-weight: 900;")
+        self.target.clicked.connect(self.hit_target)
+        self.target.hide()
+        
+        self.timer = QTimer(self)
+        self.timer.setInterval(1000)
+        self.timer.timeout.connect(self.spawn_target)
+        self.timer.start()
+        
+        self.spawn_target()
+
+    def spawn_target(self) -> None:
+        import random
+        x = random.randint(0, 420)
+        y = random.randint(0, 320)
+        self.target.move(x, y)
+        self.target.show()
+        
+    def hit_target(self) -> None:
+        self.target.hide()
+        self.score += 1
+        self.score_label.setText(f"Shadows Slain: {self.score} / 20")
+        
+        if self.score >= 20:
+            self.timer.stop()
+            self.accept()
 
 
 class GameWindow(QMainWindow):

@@ -136,7 +136,8 @@ MUTATION_COLORS = {
 }
 
 GAME_REWARDS = {
-    "RelmClicker": 1, # per 10 clicks
+    "RelmFishing": 5, # per catch
+    "RelmSlayer": 10, # per boss defeat
     "MemoryMatch": 50, # per win
 }
 
