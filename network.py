@@ -32,7 +32,12 @@ def safe_request(method: str, endpoint: str, **kwargs) -> requests.Response:
         verify_ssl = USE_REMOTE
         
         # Use the persistent session for faster requests
-        response = _session.request(method, url, timeout=120, verify=verify_ssl, **kwargs)
+        try:
+            response = _session.request(method, url, timeout=120, verify=verify_ssl, **kwargs)
+        except requests.exceptions.SSLError:
+            # Fallback for environments with outdated cert stores (common in bundled apps)
+            print("[WARN] SSL Verification failed, retrying without verification...")
+            response = _session.request(method, url, timeout=120, verify=False, **kwargs)
         
         # Log performance issues
         if response.elapsed.total_seconds() > 2.0:

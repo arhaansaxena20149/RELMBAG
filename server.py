@@ -853,7 +853,7 @@ def debug():
 def home():
     return jsonify({
         "status": "online",
-        "version": "2.2.1",
+        "version": "1.1",
         "service": "RelmBag Arena Server",
         "database": str(DATABASE_PATH),
         "source": DATABASE_PATH_SOURCE,

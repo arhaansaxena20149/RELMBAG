@@ -261,6 +261,57 @@ QPushButton:hover {
         qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #B98C58, stop: 0.55 #8F653A, stop: 1 #5B3D25);
     border-color: #F4C883;
 }
+QComboBox {
+    background: #1A121F;
+    border: 1px solid #866042;
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: #F5EBD5;
+    min-width: 120px;
+}
+QComboBox:on {
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+QComboBox QAbstractItemView {
+    background: #1A121F;
+    border: 1px solid #866042;
+    border-top: none;
+    selection-background-color: #7B57D1;
+    selection-color: #FFF8EA;
+    outline: none;
+}
+QScrollBar:vertical {
+    background: #0D0912;
+    width: 12px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: #523824;
+    min-height: 20px;
+    border-radius: 6px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #7E5935;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+QScrollBar:horizontal {
+    background: #0D0912;
+    height: 12px;
+    margin: 0px;
+}
+QScrollBar::handle:horizontal {
+    background: #523824;
+    min-width: 20px;
+    border-radius: 6px;
+    margin: 2px;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
 QPushButton:pressed {
     background: #4A3220;
     padding-top: 14px;

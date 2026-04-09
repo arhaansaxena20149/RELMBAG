@@ -2742,10 +2742,11 @@ class ChatPage(BasePage):
 class GameWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
+        from config import APP_VERSION
         self.current_user: dict | None = None
         self.seen_trade_notifications: set[int] = set()
         self.seen_battle_notifications: set[int] = set()
-        self.setWindowTitle(APP_TITLE)
+        self.setWindowTitle(f"{APP_TITLE} v{APP_VERSION}")
         self.setWindowIcon(QIcon(str(APP_ICON_PNG)))
         self.resize(1520, 940)
 

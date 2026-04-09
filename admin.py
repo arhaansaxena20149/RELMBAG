@@ -109,7 +109,6 @@ class AdminPlayerCard(QFrame):
         on_add_ten,
         on_kick,
         on_ban,
-        on_reset_password,
     ) -> None:
         super().__init__()
         is_banned = player.get("is_banned", False)
@@ -179,14 +178,8 @@ class AdminPlayerCard(QFrame):
         ban_button.setStyleSheet(f"background: {'#63D471' if is_banned else '#E14B4B'}; color: white;")
         ban_button.clicked.connect(on_ban)
         
-        reset_pw_button = QPushButton("Reset PW")
-        reset_pw_button.setObjectName("secondaryButton")
-        reset_pw_button.setStyleSheet("background: #AEBBD0; color: black;")
-        reset_pw_button.clicked.connect(on_reset_password)
-        
         mod_layout.addWidget(kick_button)
         mod_layout.addWidget(ban_button)
-        mod_layout.addWidget(reset_pw_button)
 
         button_layout.addWidget(select_button)
         button_layout.addLayout(token_layout)
@@ -382,7 +375,6 @@ class AdminPanelPage(QWidget):
                 on_add_ten=partial(self.adjust_tokens, player["id"], 10),
                 on_kick=partial(self.kick_user, player["id"]),
                 on_ban=partial(self.toggle_ban, player["id"], not player["is_banned"]),
-                on_reset_password=partial(self.reset_user_password, player["id"]),
             )
             self.roster_list_layout.addWidget(card)
         self.roster_list_layout.addStretch(1)
@@ -402,15 +394,6 @@ class AdminPanelPage(QWidget):
         QThreadPool.globalInstance().start(worker)
         action = "Banning" if should_ban else "Unbanning"
         set_status(self.status_label, f"{action} user {user_id}...", "#E14B4B")
-
-    def reset_user_password(self, user_id: int) -> None:
-        from PyQt5.QtWidgets import QInputDialog, QLineEdit
-        password, ok = QInputDialog.getText(self, "Reset Password", "Enter new password:", QLineEdit.Password)
-        if ok and password:
-            worker = Worker(api.reset_password, user_id, password)
-            worker.signals.finished.connect(lambda success: set_status(self.status_label, "Password reset successfully." if success else "Failed to reset password.", "#63D471" if success else "#E14B4B"))
-            QThreadPool.globalInstance().start(worker)
-            set_status(self.status_label, f"Resetting password for user {user_id}...", "#F2C14E")
 
     def select_user(self, user_id: int) -> None:
         self.current_user_id = user_id
@@ -514,15 +497,22 @@ class AdminPanelPage(QWidget):
         if self.current_user_id is None:
             return
             
-        from PyQt5.QtWidgets import QDialog, QFormLayout, QLineEdit, QSpinBox, QDialogButtonBox
+        from PyQt5.QtWidgets import QDialog, QFormLayout, QLineEdit, QSpinBox, QDialogButtonBox, QComboBox
+        from config import CREATURE_CATALOG, RARITY_ORDER, RARITY_CREATURES
         
         dialog = QDialog(self)
         dialog.setWindowTitle("Give Creature")
         layout = QFormLayout(dialog)
         
-        name_input = QLineEdit()
-        name_input.setPlaceholderText("e.g. Nyxarion")
-        layout.addRow("Creature Name:", name_input)
+        # Improved dropdown for creature selection
+        creature_dropdown = QComboBox()
+        # Sort creatures by rarity then name
+        all_creatures = []
+        for rarity in RARITY_ORDER:
+            for name, theme in RARITY_CREATURES[rarity]:
+                all_creatures.append(f"{name} ({rarity})")
+        creature_dropdown.addItems(all_creatures)
+        layout.addRow("Select Creature:", creature_dropdown)
         
         level_input = QSpinBox()
         level_input.setRange(1, 100)
@@ -535,11 +525,10 @@ class AdminPanelPage(QWidget):
         layout.addRow(buttons)
         
         if dialog.exec_() == QDialog.Accepted:
-            creature_name = name_input.text().strip()
+            selected_text = creature_dropdown.currentText()
+            creature_name = selected_text.split(" (")[0]
             level = level_input.value()
-            if not creature_name:
-                return
-                
+            
             worker = Worker(api.safe_request, "post", "admin/give_creature", json={
                 "user_id": self.current_user_id,
                 "creature_name": creature_name,
@@ -561,7 +550,8 @@ class AdminPanelPage(QWidget):
 class AdminWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle(f"{APP_TITLE} - Admin Panel")
+        from config import APP_VERSION
+        self.setWindowTitle(f"{APP_TITLE} Admin v{APP_VERSION}")
         self.setWindowIcon(QIcon(str(APP_ICON_PNG)))
         self.resize(1100, 760)
 
