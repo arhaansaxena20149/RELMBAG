@@ -48,6 +48,8 @@ def resolve_user(identifier):
         return None
 
 def init_db():
+    print(f"[STARTUP] Initializing database at {DATABASE_PATH}...")
+    print(f"[STARTUP] Path Source: {DATABASE_PATH_SOURCE}")
     logger.info("Initializing database at %s (%s)", DATABASE_PATH, DATABASE_PATH_SOURCE)
     if os.environ.get("RENDER", "").lower() == "true" and "RELMBAG_DB_PATH" not in os.environ:
         logger.warning(
@@ -849,8 +851,14 @@ def debug():
 
 @app.route("/")
 def home():
-    # Show version 2.2 to confirm this exact code is live
-    return "RelmBag Server Running - v2.2"
+    return jsonify({
+        "status": "online",
+        "version": "2.2.1",
+        "service": "RelmBag Arena Server",
+        "database": str(DATABASE_PATH),
+        "source": DATABASE_PATH_SOURCE,
+        "environment": "Render" if os.environ.get("RENDER") else "Local"
+    })
 
 # --------------------------
 # RUN SERVER

@@ -39,6 +39,14 @@ def safe_request(method: str, endpoint: str, **kwargs) -> requests.Response:
             print(f"[WARN] Slow request: {method.upper()} {url} took {response.elapsed.total_seconds():.2f}s")
             
         return response
+    except requests.exceptions.ConnectionError as error:
+        print(f"[ERROR] Connection error for {method.upper()} {url}: {error}")
+        print(f"[HINT] Check if {SERVER_URL} is correct and the server is running.")
+        raise
+    except requests.exceptions.Timeout as error:
+        print(f"[ERROR] Request timed out for {method.upper()} {url}: {error}")
+        print(f"[HINT] The server might be waking up (Render cold start) or slow.")
+        raise
     except Exception as error:
         print(f"[ERROR] Network request failed for {method.upper()} {url}: {error}")
         raise

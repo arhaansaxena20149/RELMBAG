@@ -320,6 +320,9 @@ CREATURES_BY_RARITY = {
 
 
 def ensure_directories() -> None:
-    for directory in (DATA_DIR, ASSETS_DIR, ICONS_DIR, GENERATED_DIR, SPRITE_OUTPUT_DIR):
-        directory.mkdir(parents=True, exist_ok=True)
-    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        for directory in (DATA_DIR, ASSETS_DIR, ICONS_DIR, GENERATED_DIR, SPRITE_OUTPUT_DIR):
+            directory.mkdir(parents=True, exist_ok=True)
+        DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"[ERROR] Failed to create directories: {e}")
