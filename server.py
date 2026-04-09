@@ -952,6 +952,14 @@ def admin_abuse():
                 if admin_user:
                     conn.execute("INSERT INTO chat_messages (user_id, message) VALUES (?, ?)", (admin_user["id"], f"[GLOBAL] {message}"))
                 logger.info(f"Admin Abuse: Global announcement: {message}")
+            elif action == "token_chaos":
+                import random
+                # Give every user a random amount of tokens between 1 and 500
+                users = conn.execute("SELECT id FROM users").fetchall()
+                for u in users:
+                    amount = random.randint(1, 500)
+                    conn.execute("UPDATE users SET tokens = tokens + ? WHERE id = ?", (amount, u["id"]))
+                logger.info(f"Admin Abuse: Token Chaos executed for {len(users)} users")
             return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Admin abuse failed: {e}")

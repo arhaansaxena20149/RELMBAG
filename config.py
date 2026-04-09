@@ -138,7 +138,9 @@ MUTATION_COLORS = {
 GAME_REWARDS = {
     "RelmFishing": 5, # per catch
     "RelmSlayer": 10, # per boss defeat
-    "MemoryMatch": 50, # per win
+    "MemoryMatch": 15, # per win
+    "RelmRunner": 8, # per successful sprint
+    "TokenCatcher": 12, # per 20 tokens caught
 }
 
 RARITY_STAT_MULTIPLIERS = {

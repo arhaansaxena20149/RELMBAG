@@ -2873,8 +2873,78 @@ class GamesPage(BasePage):
         slayer_layout.addWidget(self.slayer_game_btn, 0, Qt.AlignCenter)
         slayer_layout.addStretch()
         body.addWidget(slayer_panel, 1)
-
         layout.addLayout(body)
+
+        body2 = QHBoxLayout()
+        body2.setSpacing(18)
+
+        # Memory Match
+        memory_panel = QFrame()
+        memory_panel.setObjectName("panel")
+        apply_shadow(memory_panel, blur=30, y_offset=10)
+        memory_layout = QVBoxLayout(memory_panel)
+        memory_title = QLabel("Memory Match")
+        memory_title.setObjectName("sectionTitle")
+        memory_desc = QLabel("Match the ancient runes to clear the board. Sharpens the mind!")
+        memory_desc.setWordWrap(True)
+        memory_desc.setStyleSheet("color: #A67B5B;")
+        
+        self.memory_game_btn = QPushButton("MATCH RUNES")
+        self.memory_game_btn.setObjectName("secondaryButton")
+        self.memory_game_btn.clicked.connect(self.start_memory_game)
+        
+        memory_layout.addWidget(memory_title)
+        memory_layout.addWidget(memory_desc)
+        memory_layout.addStretch()
+        memory_layout.addWidget(self.memory_game_btn, 0, Qt.AlignCenter)
+        memory_layout.addStretch()
+        body2.addWidget(memory_panel, 1)
+
+        # Relm Runner
+        runner_panel = QFrame()
+        runner_panel.setObjectName("panel")
+        apply_shadow(runner_panel, blur=30, y_offset=10)
+        runner_layout = QVBoxLayout(runner_panel)
+        runner_title = QLabel("Relm Runner")
+        runner_title.setObjectName("sectionTitle")
+        runner_desc = QLabel("Sprint through the void! Jump over obstacles to reach the end.")
+        runner_desc.setWordWrap(True)
+        runner_desc.setStyleSheet("color: #A67B5B;")
+        
+        self.runner_game_btn = QPushButton("GO RUNNING")
+        self.runner_game_btn.setObjectName("secondaryButton")
+        self.runner_game_btn.clicked.connect(self.start_runner_game)
+        
+        runner_layout.addWidget(runner_title)
+        runner_layout.addWidget(runner_desc)
+        runner_layout.addStretch()
+        runner_layout.addWidget(self.runner_game_btn, 0, Qt.AlignCenter)
+        runner_layout.addStretch()
+        body2.addWidget(runner_panel, 1)
+
+        # Token Catcher
+        catcher_panel = QFrame()
+        catcher_panel.setObjectName("panel")
+        apply_shadow(catcher_panel, blur=30, y_offset=10)
+        catcher_layout = QVBoxLayout(catcher_panel)
+        catcher_title = QLabel("Token Catcher")
+        catcher_title.setObjectName("sectionTitle")
+        catcher_desc = QLabel("Catch falling tokens from the celestial rift. Don't let them drop!")
+        catcher_desc.setWordWrap(True)
+        catcher_desc.setStyleSheet("color: #A67B5B;")
+        
+        self.catcher_game_btn = QPushButton("CATCH TOKENS")
+        self.catcher_game_btn.setObjectName("secondaryButton")
+        self.catcher_game_btn.clicked.connect(self.start_catcher_game)
+        
+        catcher_layout.addWidget(catcher_title)
+        catcher_layout.addWidget(catcher_desc)
+        catcher_layout.addStretch()
+        catcher_layout.addWidget(self.catcher_game_btn, 0, Qt.AlignCenter)
+        catcher_layout.addStretch()
+        body2.addWidget(catcher_panel, 1)
+
+        layout.addLayout(body2)
         layout.addStretch(1)
         self.status_label = QLabel()
         layout.addWidget(self.status_label)
@@ -2888,6 +2958,21 @@ class GamesPage(BasePage):
         dialog = SlayerGameDialog(self)
         if dialog.exec_() == QDialog.Accepted:
             self.award_token("RelmSlayer", 10)
+
+    def start_memory_game(self) -> None:
+        dialog = MemoryGameDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.award_token("MemoryMatch", 15)
+
+    def start_runner_game(self) -> None:
+        dialog = RunnerGameDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.award_token("RelmRunner", 8)
+
+    def start_catcher_game(self) -> None:
+        dialog = CatcherGameDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.award_token("TokenCatcher", 12)
 
     def award_token(self, game_name: str, amount: int) -> None:
         worker = Worker(api.safe_request, "post", "games/reward", json={
@@ -3051,6 +3136,229 @@ class SlayerGameDialog(QDialog):
         
         if self.score >= 20:
             self.timer.stop()
+            self.accept()
+
+
+class MemoryGameDialog(QDialog):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Memory Match")
+        self.resize(500, 600)
+        self.setStyleSheet(parent.parent().styleSheet())
+        layout = QVBoxLayout(self)
+        
+        title = QLabel("MEMORY MATCH")
+        title.setObjectName("sectionTitle")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        self.grid = QGridLayout()
+        self.grid.setSpacing(10)
+        layout.addLayout(self.grid)
+        
+        # 4x4 grid of 8 pairs
+        symbols = ["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ"] * 2
+        import random
+        random.shuffle(symbols)
+        
+        self.buttons = []
+        self.first_selection = None
+        self.second_selection = None
+        self.matches = 0
+        
+        for i in range(16):
+            btn = QPushButton("?")
+            btn.setFixedSize(80, 80)
+            btn.setObjectName("secondaryButton")
+            btn.setStyleSheet("font-size: 32px; font-weight: 800;")
+            btn.symbol = symbols[i]
+            btn.index = i
+            btn.clicked.connect(partial(self.handle_click, btn))
+            self.grid.addWidget(btn, i // 4, i % 4)
+            self.buttons.append(btn)
+            
+    def handle_click(self, btn: QPushButton) -> None:
+        if btn == self.first_selection or btn.text() != "?":
+            return
+            
+        btn.setText(btn.symbol)
+        
+        if self.first_selection is None:
+            self.first_selection = btn
+        else:
+            self.second_selection = btn
+            # Disable all buttons temporarily
+            for b in self.buttons: b.setEnabled(False)
+            QTimer.singleShot(500, self.check_match)
+            
+    def check_match(self) -> None:
+        if self.first_selection.symbol == self.second_selection.symbol:
+            self.matches += 1
+            if self.matches == 8:
+                self.accept()
+        else:
+            self.first_selection.setText("?")
+            self.second_selection.setText("?")
+            
+        self.first_selection = None
+        self.second_selection = None
+        for b in self.buttons: b.setEnabled(True)
+
+
+class RunnerGameDialog(QDialog):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Relm Runner")
+        self.resize(600, 300)
+        self.setStyleSheet(parent.parent().styleSheet())
+        layout = QVBoxLayout(self)
+        
+        title = QLabel("RELM RUNNER")
+        title.setObjectName("sectionTitle")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        self.game_area = QFrame()
+        self.game_area.setFixedSize(500, 150)
+        self.game_area.setObjectName("panel")
+        self.game_area.setStyleSheet("background: #0D0912; border: 2px solid #7B57D1;")
+        layout.addWidget(self.game_area, 0, Qt.AlignCenter)
+        
+        self.player = QFrame(self.game_area)
+        self.player.setFixedSize(30, 30)
+        self.player.setStyleSheet("background: #6EEB83; border-radius: 15px;")
+        self.player_y = 120
+        self.player_velocity = 0
+        self.is_jumping = False
+        
+        self.obstacles = []
+        self.timer = QTimer(self)
+        self.timer.setInterval(20)
+        self.timer.timeout.connect(self.update_game)
+        self.timer.start()
+        
+        self.spawn_timer = QTimer(self)
+        self.spawn_timer.setInterval(1500)
+        self.spawn_timer.timeout.connect(self.spawn_obstacle)
+        self.spawn_timer.start()
+        
+        self.distance = 0
+        self.dist_label = QLabel("Distance: 0 / 1000")
+        layout.addWidget(self.dist_label)
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() == Qt.Key_Space and not self.is_jumping:
+            self.player_velocity = -12
+            self.is_jumping = True
+        super().keyPressEvent(event)
+
+    def spawn_obstacle(self) -> None:
+        obs = QFrame(self.game_area)
+        obs.setFixedSize(20, 30)
+        obs.setStyleSheet("background: #E14B4B;")
+        obs.move(500, 120)
+        self.obstacles.append(obs)
+
+    def update_game(self) -> None:
+        self.distance += 2
+        self.dist_label.setText(f"Distance: {self.distance} / 1000")
+        
+        # Player gravity
+        self.player_velocity += 0.8
+        self.player_y += self.player_velocity
+        if self.player_y >= 120:
+            self.player_y = 120
+            self.is_jumping = False
+            
+        self.player.move(50, int(self.player_y))
+        
+        # Obstacles
+        for obs in self.obstacles[:]:
+            obs.move(obs.x() - 5, obs.y())
+            if obs.x() < -20:
+                self.obstacles.remove(obs)
+                obs.deleteLater()
+            
+            # Collision
+            if abs(obs.x() - 50) < 25 and abs(obs.y() - self.player_y) < 25:
+                self.distance = 0 # Reset distance on hit
+                
+        if self.distance >= 1000:
+            self.timer.stop()
+            self.spawn_timer.stop()
+            self.accept()
+
+
+class CatcherGameDialog(QDialog):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Token Catcher")
+        self.resize(400, 500)
+        self.setStyleSheet(parent.parent().styleSheet())
+        layout = QVBoxLayout(self)
+        
+        title = QLabel("TOKEN CATCHER")
+        title.setObjectName("sectionTitle")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        self.score = 0
+        self.score_label = QLabel("Tokens Caught: 0 / 20")
+        layout.addWidget(self.score_label)
+
+        self.game_area = QFrame()
+        self.game_area.setFixedSize(350, 400)
+        self.game_area.setObjectName("panel")
+        self.game_area.setStyleSheet("background: #0D0912; border: 2px solid #F2C14E;")
+        layout.addWidget(self.game_area, 0, Qt.AlignCenter)
+        
+        self.basket = QFrame(self.game_area)
+        self.basket.setFixedSize(60, 20)
+        self.basket.setStyleSheet("background: #F2C14E; border-radius: 5px;")
+        self.basket_x = 145
+        self.basket.move(self.basket_x, 370)
+        
+        self.tokens = []
+        self.timer = QTimer(self)
+        self.timer.setInterval(20)
+        self.timer.timeout.connect(self.update_game)
+        self.timer.start()
+        
+        self.spawn_timer = QTimer(self)
+        self.spawn_timer.setInterval(800)
+        self.spawn_timer.timeout.connect(self.spawn_token)
+        self.spawn_timer.start()
+        
+        self.setMouseTracking(True)
+        self.game_area.setMouseTracking(True)
+
+    def mouseMoveEvent(self, event) -> None:
+        pos = self.game_area.mapFromGlobal(QCursor.pos())
+        self.basket_x = max(0, min(290, pos.x() - 30))
+        self.basket.move(self.basket_x, 370)
+
+    def spawn_token(self) -> None:
+        import random
+        t = QLabel("●", self.game_area)
+        t.setStyleSheet("color: #F2C14E; font-size: 20px;")
+        t.move(random.randint(0, 330), 0)
+        self.tokens.append(t)
+
+    def update_game(self) -> None:
+        for t in self.tokens[:]:
+            t.move(t.x(), t.y() + 4)
+            if t.y() > 400:
+                self.tokens.remove(t)
+                t.deleteLater()
+            elif t.y() > 360 and abs(t.x() - self.basket_x) < 40:
+                self.tokens.remove(t)
+                t.deleteLater()
+                self.score += 1
+                self.score_label.setText(f"Tokens Caught: {self.score} / 20")
+                
+        if self.score >= 20:
+            self.timer.stop()
+            self.spawn_timer.stop()
             self.accept()
 
 
