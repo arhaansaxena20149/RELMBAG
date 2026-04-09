@@ -1,6 +1,7 @@
 import bcrypt
 import logging
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import sqlite3
 import random
 import time
@@ -23,6 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app) # Enable CORS for all routes
 
 # Use the centralized database path
 DB_NAME = str(DATABASE_PATH)
