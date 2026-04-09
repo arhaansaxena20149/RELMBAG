@@ -1,3 +1,0 @@
-([('RelmBag Admin',
-   '/Users/arhaansaxena/RELMBAG/dist/RelmBag Admin',
-   'EXECUTABLE')],)

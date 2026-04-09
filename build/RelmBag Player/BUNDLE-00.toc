@@ -1,3 +1,0 @@
-([('RelmBag Player',
-   '/Users/arhaansaxena/RELMBAG/dist/RelmBag Player',
-   'EXECUTABLE')],)
